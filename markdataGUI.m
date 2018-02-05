@@ -28,7 +28,21 @@ function varargout = markdataGUI(varargin)
 %      [inds] = markdataGUI(dat) provides as output the array of indices
 %      that were marked during the call to markdataGUI. This output is
 %      only populated when the GUI window is closed.
-
+%
+%      Clicking on the slider or on any of the axes on the right side of
+%      the figure will position a dashed line on the right-hand axes
+%      indicating the current index, and will update the 3D plot. When an
+%      index of interest has been identified, it can be saved by using the
+%      "Mark" button. All currently saved indices will be denoted by a
+%      vertical red line on the right-hand axes. To remove a mark, choose
+%      a position close to the the mark to be removed and click the
+%      "Unmark" button, which will remove the closest marked index. 
+%
+%      The "play" and "stop" features will automatically step through the
+%      data set like a movie. Note that in some cases (i.e., when the
+%      processor or Matlab are very slow) this can cause unintended
+%      blocking, preventing additional updates to be made. In this case, it
+%      may become necessary to force-quit out of the GUI.
 
 
 
@@ -97,12 +111,17 @@ if ~isstruct(m)
     m = n;
 end
 
-for a = length(m)+1:8
-    m(a).x = NaN*ones(size(m(1).x));
-    m(a).y = NaN*ones(size(m(1).y));
-    m(a).z = NaN*ones(size(m(1).z));
+for a = length(m)+1:7
+    m(a).x = zeroes(size(m(1).x));
+    m(a).y = zeroes(size(m(1).y));
+    m(a).z = zeroes(size(m(1).z));
 end
-    
+
+if length(m) < 8
+    m(8).x = m(7).x;
+    m(8).y = m(7).y;
+    m(8).z = m(7).z;
+end
 
 
 % for a = 1:size(m,3)
