@@ -102,6 +102,24 @@ function markdataGUI_OpeningFcn(hObject, eventdata, handles, varargin)
 %create the data plot
 m = varargin{1};
 
+i = 2;
+while i <= length(varargin)
+    switch(varargin{i})
+        case 'rot'
+            if isstruct(m)
+                for a = 1:length(m)
+                    m(a).x = m(a).rotx;
+                    m(a).y = m(a).roty;
+                    m(a).z = m(a).rotz;
+                end
+            end
+            i = i+1;
+        otherwise
+            i = i+1;
+    end
+end
+            
+
 if ~isstruct(m)
     for a = 1:size(m,3)
         n(a).x = m(:,1,a);
@@ -118,7 +136,7 @@ for a = length(m)+1:7
 end
 
 if length(m) < 8
-    m(8).x = m(7).x;
+    m(8).x = m(7).x-30;
     m(8).y = m(7).y;
     m(8).z = m(7).z;
 end
@@ -388,7 +406,8 @@ xtorso = [handles.joint.shoulder(c,1); handles.joint.refshoulder(c,1); handles.j
 ytorso = [handles.joint.shoulder(c,2); handles.joint.refshoulder(c,2); handles.joint.refshoulder(c,2); handles.joint.shoulder(c,2)];
 ztorso = [handles.joint.shoulder(c,3); handles.joint.refshoulder(c,3); handles.joint.refshoulder(c,3)-40; handles.joint.shoulder(c,3)-40];
 
-headrad = 9;
+%headrad = 9;
+headrad = abs(handles.joint.refshoulder(1,1)-handles.joint.shoulder(1,1))/4;
 headc = handles.torso(c,:) + [0 0 headrad];
 theta = [0:pi/10:2*pi];
 headx = headrad*cos(theta);
