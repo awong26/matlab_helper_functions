@@ -114,6 +114,10 @@ while i <= length(varargin)
                 end
             end
             i = i+1;
+        case 'title'
+            ttlstr = varargin{i+1};
+            set(gcf,'Name',sprintf('markdataGUI: %s',ttlstr));
+            i = i+2;
         otherwise
             i = i+1;
     end
@@ -159,10 +163,10 @@ handles.joint.thumbfinger = [m(1).x m(1).y m(1).z] - handles.torso;
 
 xmin = min([handles.joint.thumbfinger(:,1); handles.joint.indexfinger(:,1); handles.joint.wrist(:,1); handles.joint.elbow(:,1); handles.joint.shoulder(:,1); handles.joint.refshoulder(:,1)]);
 xmax = max([handles.joint.thumbfinger(:,1); handles.joint.indexfinger(:,1); handles.joint.wrist(:,1); handles.joint.elbow(:,1); handles.joint.shoulder(:,1); handles.joint.refshoulder(:,1)]);
-ymin = min([handles.joint.thumbfinger(:,2); handles.joint.indexfinger(:,2); handles.joint.wrist(:,2); handles.joint.elbow(:,2); handles.joint.shoulder(:,2); handles.joint.refshoulder(:,1)]);
-ymax = max([handles.joint.thumbfinger(:,2); handles.joint.indexfinger(:,2); handles.joint.wrist(:,2); handles.joint.elbow(:,2); handles.joint.shoulder(:,2); handles.joint.refshoulder(:,1)]);
-zmin = min([handles.joint.thumbfinger(:,3); handles.joint.indexfinger(:,3); handles.joint.wrist(:,3); handles.joint.elbow(:,3); handles.joint.shoulder(:,3); handles.joint.refshoulder(:,1)]);
-zmax = max([handles.joint.thumbfinger(:,3); handles.joint.indexfinger(:,3); handles.joint.wrist(:,3); handles.joint.elbow(:,3); handles.joint.shoulder(:,3); handles.joint.refshoulder(:,1)]);
+ymin = min([handles.joint.thumbfinger(:,2); handles.joint.indexfinger(:,2); handles.joint.wrist(:,2); handles.joint.elbow(:,2); handles.joint.shoulder(:,2); handles.joint.refshoulder(:,2)]);
+ymax = max([handles.joint.thumbfinger(:,2); handles.joint.indexfinger(:,2); handles.joint.wrist(:,2); handles.joint.elbow(:,2); handles.joint.shoulder(:,2); handles.joint.refshoulder(:,2)]);
+zmin = min([handles.joint.thumbfinger(:,3); handles.joint.indexfinger(:,3); handles.joint.wrist(:,3); handles.joint.elbow(:,3); handles.joint.shoulder(:,3); handles.joint.refshoulder(:,3)]);
+zmax = max([handles.joint.thumbfinger(:,3); handles.joint.indexfinger(:,3); handles.joint.wrist(:,3); handles.joint.elbow(:,3); handles.joint.shoulder(:,3); handles.joint.refshoulder(:,3)]);
 
 handles.plot.xmin = floor(xmin/5)*5;
 handles.plot.xmax = ceil(xmax/5)*5;
@@ -170,6 +174,11 @@ handles.plot.ymin = floor(ymin/5)*5;
 handles.plot.ymax = ceil(ymax/5)*5;
 handles.plot.zmin = floor(zmin/5)*5;
 handles.plot.zmax = ceil(zmax/5)*5;
+if( handles.plot.zmax < (max([handles.joint.shoulder(:,3); handles.joint.refshoulder(:,3)]) + abs(handles.joint.refshoulder(1,1)-handles.joint.shoulder(1,1))/4) )
+    handles.plot.zmax = (max([handles.joint.shoulder(:,3); handles.joint.refshoulder(:,3)]) + abs(handles.joint.refshoulder(1,1)-handles.joint.shoulder(1,1))/2*1.5);
+    %handles.plot.zmax = ceil(zmax/5)*5;
+end
+
 % handles.plot.xmin = -80;
 % handles.plot.xmax = 80;
 % handles.plot.ymin = -70;
@@ -402,9 +411,10 @@ inds = getappdata(handles.figure1,'inds');
 [xWT,yWT,zWT] = cylinder2P([.25 .25 .25 .1 .1 .1],10,handles.joint.wrist(c,:),handles.joint.thumbfinger(c,:));
 
 %rectangle representing the body, assuming a vertical plane
+torsolength = abs(handles.joint.shoulder(1,1)-handles.joint.refshoulder(1,1))*1.5;
 xtorso = [handles.joint.shoulder(c,1); handles.joint.refshoulder(c,1); handles.joint.refshoulder(c,1); handles.joint.shoulder(c,1)];
 ytorso = [handles.joint.shoulder(c,2); handles.joint.refshoulder(c,2); handles.joint.refshoulder(c,2); handles.joint.shoulder(c,2)];
-ztorso = [handles.joint.shoulder(c,3); handles.joint.refshoulder(c,3); handles.joint.refshoulder(c,3)-40; handles.joint.shoulder(c,3)-40];
+ztorso = [handles.joint.shoulder(c,3); handles.joint.refshoulder(c,3); handles.joint.refshoulder(c,3)-torsolength; handles.joint.shoulder(c,3)-torsolength];
 
 %headrad = 9;
 headrad = abs(handles.joint.refshoulder(1,1)-handles.joint.shoulder(1,1))/4;
