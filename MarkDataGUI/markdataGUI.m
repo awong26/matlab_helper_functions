@@ -102,6 +102,8 @@ function markdataGUI_OpeningFcn(hObject, eventdata, handles, varargin)
 %create the data plot
 m = varargin{1};
 
+inds = [];
+
 i = 2;
 while i <= length(varargin)
     switch(varargin{i})
@@ -117,6 +119,9 @@ while i <= length(varargin)
         case 'title'
             ttlstr = varargin{i+1};
             set(gcf,'Name',sprintf('markdataGUI: %s',ttlstr));
+            i = i+2;
+        case 'mark'
+            inds = varargin{i+1};
             i = i+2;
         otherwise
             i = i+1;
@@ -134,9 +139,9 @@ if ~isstruct(m)
 end
 
 for a = length(m)+1:7
-    m(a).x = zeroes(size(m(1).x));
-    m(a).y = zeroes(size(m(1).y));
-    m(a).z = zeroes(size(m(1).z));
+    m(a).x = zeros(size(m(1).x));
+    m(a).y = zeros(size(m(1).y));
+    m(a).z = zeros(size(m(1).z));
 end
 
 if length(m) < 8
@@ -200,7 +205,7 @@ c = 1;
 setappdata(handles.figure1,'c',c);
 
 %handles.inds = [];
-inds = [];
+%inds = [];
 setappdata(handles.figure1,'inds',inds);
 
 playtimer = timer('Name','DataPlayer','Period',0.25,'StartDelay',0.1,'ExecutionMode','fixedRate','TimerFcn',{@timerCallbackFcn,handles});
