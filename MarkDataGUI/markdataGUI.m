@@ -103,9 +103,13 @@ function markdataGUI_OpeningFcn(hObject, eventdata, handles, varargin)
 m = varargin{1};
 
 inds = [];
+nmarkers = 6;
 
 i = 2;
 while i <= length(varargin)
+    if ~ischar(varargin{i}) && ~isscalar(varargin{i}) %catch cases where invalid input into switch
+        continue;
+    end
     switch(varargin{i})
         case 'rot'
             if isstruct(m)
@@ -122,6 +126,9 @@ while i <= length(varargin)
             i = i+2;
         case 'mark'
             inds = varargin{i+1};
+            i = i+2;
+        case 'nmarkers'
+            nmarkers = varargin{i+1};
             i = i+2;
         otherwise
             i = i+1;
@@ -163,8 +170,10 @@ handles.joint.shoulder = [m(7).x m(7).y m(7).z] - handles.torso;
 handles.joint.elbow =    [m(6).x m(6).y m(6).z] - handles.torso;
 handles.joint.wrist =    [m(5).x m(5).y m(5).z] - handles.torso;
 handles.joint.hand =     [m(4).x m(4).y m(4).z] - handles.torso;
+handles.joint.middlefinger = [m(3).x m(3).y m(3).z] - handles.torso;
 handles.joint.indexfinger = [m(2).x m(2).y m(2).z] - handles.torso;
 handles.joint.thumbfinger = [m(1).x m(1).y m(1).z] - handles.torso;
+handles.nmarkers = nmarkers;
 
 xmin = min([handles.joint.thumbfinger(:,1); handles.joint.indexfinger(:,1); handles.joint.wrist(:,1); handles.joint.elbow(:,1); handles.joint.shoulder(:,1); handles.joint.refshoulder(:,1)]);
 xmax = max([handles.joint.thumbfinger(:,1); handles.joint.indexfinger(:,1); handles.joint.wrist(:,1); handles.joint.elbow(:,1); handles.joint.shoulder(:,1); handles.joint.refshoulder(:,1)]);
@@ -410,10 +419,20 @@ function updateplot(handles)
 c = getappdata(handles.figure1,'c');
 inds = getappdata(handles.figure1,'inds');
 
-[xSE,ySE,zSE] = cylinder2P(.45,10,handles.joint.shoulder(c,:),handles.joint.elbow(c,:));
-[xEW,yEW,zEW] = cylinder2P(.375,10,handles.joint.elbow(c,:),handles.joint.wrist(c,:));
-[xWF,yWF,zWF] = cylinder2P([.25 .25 .25 .1 .1 .1],10,handles.joint.wrist(c,:),handles.joint.indexfinger(c,:));
-[xWT,yWT,zWT] = cylinder2P([.25 .25 .25 .1 .1 .1],10,handles.joint.wrist(c,:),handles.joint.thumbfinger(c,:));
+if handles.nmarkers == 6
+    %do simplified arm without wrist/hand
+    [xSE,ySE,zSE] = cylinder2P(.45,8,handles.joint.shoulder(c,:),handles.joint.elbow(c,:));
+    [xEW,yEW,zEW] = cylinder2P(.375,8,handles.joint.elbow(c,:),handles.joint.wrist(c,:));
+    [xWF,yWF,zWF] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.wrist(c,:),handles.joint.indexfinger(c,:));
+    [xWT,yWT,zWT] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.wrist(c,:),handles.joint.thumbfinger(c,:));
+elseif handles.nmarkers == 8
+    [xSE,ySE,zSE] = cylinder2P(.45,8,handles.joint.shoulder(c,:),handles.joint.elbow(c,:));
+    [xEW,yEW,zEW] = cylinder2P(.375,8,handles.joint.elbow(c,:),handles.joint.wrist(c,:));
+    [xWH,yWH,zWH] = cylinder2P(.375,8,handles.joint.wrist(c,:),handles.joint.hand(c,:));
+    [xHM,yHM,zHM] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.middlefinger(c,:));
+    [xWF,yWF,zWF] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.indexfinger(c,:));
+    [xWT,yWT,zWT] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.thumbfinger(c,:));
+end
 
 %rectangle representing the body, assuming a vertical plane
 torsolength = abs(handles.joint.shoulder(1,1)-handles.joint.refshoulder(1,1))*1.5;
@@ -440,6 +459,12 @@ h = surf(xSE, ySE, zSE);
 set(h,'FaceColor',[1 0 0]);
 h = surf(xEW, yEW, zEW);
 set(h,'FaceColor',[1 1 0]);
+if handles.nmarkers == 8
+    h = surf(xWH, yWH, zWH);
+    set(h,'FaceColor',[1 1 0]);
+    h = surf(xHM, yHM, zHM);
+    set(h,'FaceColor',[0 0 1]);
+end
 h = surf(xWF, yWF, zWF);
 set(h,'FaceColor',[0 0 1]);
 h = surf(xWT, yWT, zWT);
