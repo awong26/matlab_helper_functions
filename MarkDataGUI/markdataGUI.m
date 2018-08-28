@@ -103,7 +103,9 @@ function markdataGUI_OpeningFcn(hObject, eventdata, handles, varargin)
 m = varargin{1};
 
 inds = [];
-nmarkers = 6;
+nmarkers = [];
+handles.ctp = [];
+ma = [];
 
 i = 2;
 while i <= length(varargin)
@@ -130,11 +132,41 @@ while i <= length(varargin)
         case 'nmarkers'
             nmarkers = varargin{i+1};
             i = i+2;
+        case 'ctp' %curvature,torsion,armplane data
+            handles.ctp = varargin{i+1};
+            i = i+2;
+        case 'ang'
+            angm = varargin{i+1};
+            if isstruct(angm) && isstruct(m)
+                for a = 1:length(m)
+                    m(a).azim = angm(a).azim;
+                    m(a).elev = angm(a).elev;
+                    m(a).roll = angm(a).roll;
+                end
+            elseif isstruct(angm) && ~isstruct(m)
+                for a = 1:length(m)
+                    ma(a).azim = angm(a).azim;
+                    ma(a).elev = angm(a).elev;
+                    ma(a).roll = angm(a).roll;
+                end
+            elseif ~isstruct(angm) && isstruct(m)
+                for a = 1:size(angm,3)
+                    m(a).azim = angm(:,1,a);
+                    m(a).elev = angm(:,2,a);
+                    m(a).roll = angm(:,3,a);
+                end
+            else  %is matrix
+                for a = 1:size(angm,3)
+                    ma(a).azim = angm(:,1,a);
+                    ma(a).elev = angm(:,2,a);
+                    ma(a).roll = angm(:,3,a);
+                end
+            end
+            i = i+2;
         otherwise
             i = i+1;
     end
 end
-            
 
 if ~isstruct(m)
     for a = 1:size(m,3)
@@ -143,19 +175,53 @@ if ~isstruct(m)
         n(a).z = m(:,3,a);
     end
     m = n;
+    
+    for a = 1:length(m)
+        m(a).azim = ma(a).azim;
+        m(a).elev = ma(a).elev;
+        m(a).roll = ma(a).roll;
+    end
+end
+
+nm = 0;
+for a = 1:length(m)
+    if sum(isnan(m(a).x)) < 10
+        nm = nm+1;
+    end
+end
+nmarkers = nm;
+if nmarkers ~= 6 && nmarkers ~= 8
+    nmarkers = 6;
+end
+
+if ~isfield(m,'azim')
+    for a = 1:length(m)
+        m(a).azim = NaN*ones(size(m(a).x));
+        m(a).elev = NaN*ones(size(m(a).x));
+        m(a).roll = NaN*ones(size(m(a).x));
+    end
 end
 
 for a = length(m)+1:7
     m(a).x = zeros(size(m(1).x));
     m(a).y = zeros(size(m(1).y));
     m(a).z = zeros(size(m(1).z));
+    m(a).azim = NaN*ones(size(m(a).x));
+    m(a).elev = NaN*ones(size(m(a).x));
+    m(a).roll = NaN*ones(size(m(a).x));
 end
 
 if length(m) < 8
     m(8).x = m(7).x-30;
     m(8).y = m(7).y;
     m(8).z = m(7).z;
+    m(8).azim = NaN*ones(size(m(8).x));
+    m(8).elev = NaN*ones(size(m(8).x));
+    m(8).roll = NaN*ones(size(m(8).x));
 end
+
+handles.m = m;
+handles.ma = ma;
 
 
 % for a = 1:size(m,3)
@@ -174,6 +240,43 @@ handles.joint.middlefinger = [m(3).x m(3).y m(3).z] - handles.torso;
 handles.joint.indexfinger = [m(2).x m(2).y m(2).z] - handles.torso;
 handles.joint.thumbfinger = [m(1).x m(1).y m(1).z] - handles.torso;
 handles.nmarkers = nmarkers;
+
+%also store the angle data if it is available
+handles.angle.refshoulder = [m(8).azim m(8).elev m(8).roll];
+handles.angle.shoulder = [m(7).azim m(7).elev m(7).roll];
+handles.angle.elbow =    [m(6).azim m(6).elev m(6).roll];
+handles.angle.wrist =    [m(5).azim m(5).elev m(5).roll];
+handles.angle.hand =     [m(4).azim m(4).elev m(4).roll];
+handles.angle.middlefinger = [m(3).azim m(3).elev m(3).roll];
+handles.angle.indexfinger = [m(2).azim m(2).elev m(2).roll];
+handles.angle.thumbfinger = [m(1).azim m(1).elev m(1).roll];
+
+%estimate the lengths of the fingers when they are fully extended
+handles.finglen.middlefinger = handles.joint.middlefinger - handles.joint.hand;
+handles.finglen.middlefinger = sqrt( sum(handles.finglen.middlefinger.^2,2) );
+handles.maxlen.middlefinger = max(handles.finglen.middlefinger);
+handles.finglen.indexfinger = handles.joint.indexfinger - handles.joint.hand;
+handles.finglen.indexfinger = sqrt( sum(handles.finglen.indexfinger.^2,2) );
+handles.maxlen.indexfinger = max(handles.finglen.indexfinger);
+handles.finglen.thumbfinger = handles.joint.thumbfinger - handles.joint.wrist;
+handles.finglen.thumbfinger = sqrt( sum(handles.finglen.thumbfinger.^2,2) );
+handles.maxlen.thumbfinger = max(handles.finglen.thumbfinger);
+
+% handles.fingratios.middlefinger = [1 1.5 2.6];
+% handles.fingratios.middlefinger = handles.fingratios.middlefinger/sum(handles.fingratios.middlefinger);
+% handles.fingratios.indexfinger = [1 1.4 2.5];
+% handles.fingratios.indexfinger = handles.fingratios.indexfinger/sum(handles.fingratios.indexfinger);
+% handles.fingratios.thumbfinger = [1 1.5 2.1];
+% handles.fingratios.thumbfinger = handles.fingratios.thumbfinger/sum(handles.fingratios.thumbfinger);
+% %finger length proportions taken from Alexander B and Viktor K "Proportions
+% % of Hand Segments" Int J Morphol 28(3) 755-758, 2010.
+
+%estimate finger angles - for computational ease, assume the same angle at
+%  every finger joint and that every finger joint is equal length
+
+handles.fingangs.middlefinger = -asind(0.5 - 0.5*3*handles.finglen.middlefinger/handles.maxlen.middlefinger) + 90;
+handles.fingangs.indexfinger = -asind(0.5 - 0.5*3*handles.finglen.indexfinger/handles.maxlen.indexfinger) + 90;
+handles.fingangs.thumbfinger = -asind(0.5 - 0.5*3*handles.finglen.thumbfinger/handles.maxlen.thumbfinger) + 90;
 
 xmin = min([handles.joint.thumbfinger(:,1); handles.joint.indexfinger(:,1); handles.joint.wrist(:,1); handles.joint.elbow(:,1); handles.joint.shoulder(:,1); handles.joint.refshoulder(:,1)]);
 xmax = max([handles.joint.thumbfinger(:,1); handles.joint.indexfinger(:,1); handles.joint.wrist(:,1); handles.joint.elbow(:,1); handles.joint.shoulder(:,1); handles.joint.refshoulder(:,1)]);
@@ -202,8 +305,10 @@ end
 
 %handles.viewaz = -25;
 %handles.viewel = 25;
-handles.viewaz = 195;
-handles.viewel = 20;
+views.az = 195;
+views.el = 20;
+views.allowupdate = 0;
+setappdata(handles.figure1,'views',views);
 
 set(handles.slider1,'Min',1);
 set(handles.slider1,'Max',size(handles.joint.shoulder,1));
@@ -217,11 +322,14 @@ setappdata(handles.figure1,'c',c);
 %inds = [];
 setappdata(handles.figure1,'inds',inds);
 
-playtimer = timer('Name','DataPlayer','Period',0.25,'StartDelay',0.1,'ExecutionMode','fixedRate','TimerFcn',{@timerCallbackFcn,handles});
+playtimer = timer('Name','DataPlayer','Period',0.3,'StartDelay',0.1,'ExecutionMode','fixedRate','TimerFcn',{@timerCallbackFcn,handles});
 stop(playtimer);
 setappdata(handles.figure1,'playtimer',playtimer);
 
 updateplot(handles);
+
+views.allowupdate = 1;
+setappdata(handles.figure1,'views',views);
 
 % Choose default command line output for markdataGUI
 handles.output = hObject;
@@ -255,6 +363,8 @@ function varargout = markdataGUI_OutputFcn(hObject, eventdata, handles)
 inds = getappdata(handles.figure1,'inds');
 varargout{1} = inds;
 
+varargout{2} = handles;
+
 delete(handles.figure1);
 
 % --- Executes on button press in pushbutton1.
@@ -266,7 +376,10 @@ set(handles.pushbutton4,'enable','off');
 set(handles.pushbutton5,'enable','off');
 
 playtimer = getappdata(handles.figure1,'playtimer');
-start(playtimer);
+pl = get(playtimer);
+if strcmpi(pl.Running,'off')  %only ask to start the timer if it was off before.
+    start(playtimer);
+end
 
 
 % --- Executes on button press in pushbutton2.
@@ -329,8 +442,10 @@ function slider1_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 
-playtimer = getappdata(handles.figure1,'playtimer');
-stop(playtimer);
+if isfield(handles,'figure1')
+    playtimer = getappdata(handles.figure1,'playtimer');
+    stop(playtimer);
+end
 
 set(handles.pushbutton4,'enable','on');
 set(handles.pushbutton5,'enable','on');
@@ -418,21 +533,151 @@ function updateplot(handles)
 
 c = getappdata(handles.figure1,'c');
 inds = getappdata(handles.figure1,'inds');
+views = getappdata(handles.figure1,'views');
+
+
+
+%compute finger segment coordinates
+ssc = @(v) [0 -v(3) v(2); v(3) 0 -v(1); -v(2) v(1) 0];
+RU = @(A,B) eye(3) + ssc(cross(A,B)) + ssc(cross(A,B))^2*(1-dot(A,B))/(norm(cross(A,B))^2); %function to align the "standard" vector A to the reference hand-finger vector b
+RA = @(A,b,gamma) eye(3) + sind(gamma)*ssc(b) + 2*((sind(gamma/2))^2)*(ssc(b))^2; %funtion to rotate a vector A around a reference vector b by an angle gamma;
+PlaneAng = @(A1,A2,B1,B2) acosd(dot(cross(A1,A2),cross(B1,B2))/(norm(cross(A1,A2))*norm(cross(B1,B2))));
+REuler = @(e,a,r) [  cosd(e)*cosd(a)                              cosd(e)*sind(a)                             -sind(e); 
+                   -(cosd(r)*sind(a))+(sind(r)*sind(e)*cosd(a))  (cosd(r)*cosd(a))+(sind(r)*sind(e)*sind(a)) sind(r)*cosd(e); 
+                    (sind(r)*sind(a))+(cosd(r)*sind(e)*cosd(a)) -(sind(r)*cosd(a))+(cosd(r)*sind(e)*sind(a)) cosd(r)*cosd(e)];
+
+Raxisswitch = REuler(90,180,0);
+                
+basev = [-1 0 0];
+
+mfv = [handles.joint.middlefinger(c,:)-handles.joint.hand(c,:)];
+mfv = mfv/norm(mfv); %normalize the hand-finger vector
+RotMat = RU(basev,mfv); %rotation matrix between (-1 0 0) and hand-finger vectors
+mfbeta = handles.fingangs.middlefinger(c);
+mfd = handles.finglen.middlefinger(c);
+mflen = handles.maxlen.middlefinger;
+mf1 = [-(mflen/3)*sind(mfbeta-90) 0 (mflen/3)*cosd(mfbeta-90) ];
+mf2 = [-(mflen/3)*(sind(mfbeta-90)+1) 0 (mflen/3)*cosd(mfbeta-90)];
+mf3 = [-(mflen/3)*(2*sind(mfbeta-90)+1) 0 0];
+mf1 = RotMat*mf1';
+mf2 = RotMat*mf2';
+mf3 = RotMat*mf3'; %sanity check: this should be equal to mfv...
+mfall = [mf1'; mf2'; mf3'];
+% %estimate the angle between the finger plane and the hand plane, and rotate if necessary
+% mfh = [handles.joint.middlefinger(c,:)-handles.joint.hand(c,:)];
+% mwh = [handles.joint.wrist(c,:)-handles.joint.hand(c,:)];
+% finghandang = PlaneAng(mf1,mf3,mfh,mwh)-90
+% %if (abs(finghandang) > 90)
+%     mf1 = RA(mf1,mfv,finghandang)*mf1;
+%     mf2 = RA(mf2,mfv,finghandang)*mf2;
+%     mf3 = RA(mf3,mfv,finghandang)*mf3;
+% %end
+%rotate the plane of the generated finger to align with the XZ plane of the finger sensor.
+%mfang = [handles.angle.middlefinger(c,1)-handles.angle.middlefinger(1,1),handles.angle.middlefinger(c,2)-handles.angle.middlefinger(1,2),handles.angle.middlefinger(c,3)-handles.angle.middlefinger(1,3)];
+mfang = [handles.angle.middlefinger(c,1),handles.angle.middlefinger(c,2),handles.angle.middlefinger(c,3)];
+mfang = mfang/norm(mfang);
+RotMatE = REuler(mfang(1),mfang(2),mfang(3));
+%sensorang = RotMatE*[0 1 0]';
+%fingang = cross(mf1,mf2);
+fingang = PlaneAng(mf1/norm(mf1),mf2/norm(mf2),RotMatE*[0 -1 0]',RotMatE*[0 0 1]');
+mf1 = RA(mf1/norm(mf1),mfv/norm(mfv),fingang)*mf1;
+mf2 = RA(mf2/norm(mf2),mfv/norm(mfv),fingang)*mf2;
+mf1 = RotMatE*mf1;
+mf2 = RotMatE*mf2;
+mf1 = mf1' + handles.joint.hand(c,:); %translate the origin back to the hand
+mf2 = mf2' + handles.joint.hand(c,:); 
+mf3 = mf3' + handles.joint.hand(c,:); %sanity check: this should be the middle finger marker pos
+mfalltrans = [mf1; mf2; mf3];
+
+ifv = [handles.joint.indexfinger(c,:)-handles.joint.hand(c,:)];
+ifv = ifv/norm(ifv); %normalize the hand-finger vector
+RotMat = RU(basev,ifv); %rotation matrix between (-1 0 0) and hand-finger vectors
+ifbeta = handles.fingangs.indexfinger(c);
+ifd = handles.finglen.indexfinger(c);
+iflen = handles.maxlen.indexfinger;
+if1 = [-(iflen/3)*sind(ifbeta-90) 0 (iflen/3)*cosd(ifbeta-90)];
+if2 = [-(iflen/3)*(sind(ifbeta-90)+1) 0 (iflen/3)*cosd(ifbeta-90)];
+if3 = [-(iflen/3)*(2*sind(ifbeta-90)+1) 0 0];
+if1 = RotMat*if1';
+if2 = RotMat*if2';
+if3 = RotMat*if3'; %sanity check: this should be equal to mfv...
+ifall = [if1; if2; if3];
+ifang = [handles.angle.indexfinger(c,1),handles.angle.indexfinger(c,2),handles.angle.indexfinger(c,3)];
+ifang = ifang/norm(ifang);
+RotMatE = REuler(ifang(1),ifang(2),ifang(3));
+fingang = PlaneAng(if1/norm(if1),if2/norm(if2),RotMatE*[0 -1 0]',RotMatE*[0 0 1]');
+if1 = RA(if1/norm(if1),ifv/norm(ifv),fingang)*if1;
+if2 = RA(if2/norm(if2),ifv/norm(ifv),fingang)*if2;
+if1 = RotMatE*if1;
+if2 = RotMatE*if2;
+if1 = if1' + handles.joint.hand(c,:); %translate the origin back to the hand
+if2 = if2' + handles.joint.hand(c,:); 
+if3 = if3' + handles.joint.hand(c,:); %sanity check: this should be the middle finger marker pos
+ifalltrans = [if1; if2; if3];
+
+
+% %estimate the angle between the fingers and re-align then if needed
+% fingfingang = PlaneAng(mfall(1,:),mfall(3,:),ifall(1,:),ifall(3,:))
+% if (fingfingang > 90)
+%     %we will assume the middle finger is off...
+%     
+
+tfv = [handles.joint.thumbfinger(c,:)-handles.joint.wrist(c,:)];
+tfv = tfv/norm(tfv); %normalize the hand-finger vector
+RotMat = RU(basev,tfv); %rotation matrix between (-1 0 0) and hand-finger vectors
+tfbeta = handles.fingangs.thumbfinger(c);
+tfd = handles.finglen.thumbfinger(c);
+tflen = handles.maxlen.thumbfinger;
+tf1 = [-(tflen/3)*sind(tfbeta-90) 0 (tflen/3)*cosd(tfbeta-90)];
+tf2 = [-(tflen/3)*(sind(tfbeta-90)+1) 0 (tflen/3)*cosd(tfbeta-90)];
+tf3 = [-(tflen/3)*(2*sind(tfbeta-90)+1) 0 0];
+tf1 = RotMat*tf1';
+tf2 = RotMat*tf2';
+tf3 = RotMat*tf3'; %sanity check: this should be equal to mfv...
+tfang = [handles.angle.thumbfinger(c,1),handles.angle.thumbfinger(c,2),handles.angle.thumbfinger(c,3)];
+tfang = tfang/norm(tfang);
+RotMatE = REuler(tfang(1),tfang(2),tfang(3));
+fingang = PlaneAng(tf1/norm(tf1),tf2/norm(tf2),RotMatE*[0 1 0]',RotMatE*[0 0 -1]');
+tf1 = RA(tf1/norm(tf1),tfv/norm(tfv),fingang)*tf1;
+tf2 = RA(tf2/norm(tf2),tfv/norm(tfv),fingang)*tf2;
+tf1 = RotMatE*tf1;
+tf2 = RotMatE*tf2;
+tf1 = tf1' + handles.joint.wrist(c,:); %translate the origin back to the hand
+tf2 = tf2' + handles.joint.wrist(c,:); 
+tf3 = tf3' + handles.joint.wrist(c,:); %sanity check: this should be the middle finger marker pos
+tfall = [tf1; tf2; tf3];
+
+
+armrad = abs(handles.joint.refshoulder(1,1)-handles.joint.shoulder(1,1))/16;
 
 if handles.nmarkers == 6
     %do simplified arm without wrist/hand
-    [xSE,ySE,zSE] = cylinder2P(.45,8,handles.joint.shoulder(c,:),handles.joint.elbow(c,:));
-    [xEW,yEW,zEW] = cylinder2P(.375,8,handles.joint.elbow(c,:),handles.joint.wrist(c,:));
-    [xWF,yWF,zWF] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.wrist(c,:),handles.joint.indexfinger(c,:));
-    [xWT,yWT,zWT] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.wrist(c,:),handles.joint.thumbfinger(c,:));
+    [xSE,ySE,zSE] = cylinder2P(armrad,8,handles.joint.shoulder(c,:),handles.joint.elbow(c,:));
+    [xEW,yEW,zEW] = cylinder2P(armrad*.75,8,handles.joint.elbow(c,:),handles.joint.wrist(c,:));
+    [xWF,yWF,zWF] = cylinder2P(armrad*[.25 .25 .25 .1 .1 .1],8,handles.joint.wrist(c,:),handles.joint.indexfinger(c,:));
+    [xWT,yWT,zWT] = cylinder2P(armrad*[.25 .25 .25 .1 .1 .1],8,handles.joint.wrist(c,:),handles.joint.thumbfinger(c,:));
 elseif handles.nmarkers == 8
-    [xSE,ySE,zSE] = cylinder2P(.45,8,handles.joint.shoulder(c,:),handles.joint.elbow(c,:));
-    [xEW,yEW,zEW] = cylinder2P(.375,8,handles.joint.elbow(c,:),handles.joint.wrist(c,:));
-    [xWH,yWH,zWH] = cylinder2P(.375,8,handles.joint.wrist(c,:),handles.joint.hand(c,:));
-    [xHM,yHM,zHM] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.middlefinger(c,:));
-    [xWF,yWF,zWF] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.indexfinger(c,:));
-    [xWT,yWT,zWT] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.thumbfinger(c,:));
+    [xSE,ySE,zSE] = cylinder2P(armrad,8,handles.joint.shoulder(c,:),handles.joint.elbow(c,:));
+    [xEW,yEW,zEW] = cylinder2P(armrad*.75,8,handles.joint.elbow(c,:),handles.joint.wrist(c,:));
+    [xWH,yWH,zWH] = cylinder2P(armrad*.75,8,handles.joint.wrist(c,:),handles.joint.hand(c,:));
+    [xHM1,yHM1,zHM1] = cylinder2P(armrad*[.3 .2],6,handles.joint.hand(c,:),mf1);
+    [xHM2,yHM2,zHM2] = cylinder2P(armrad*[.2 .2],6,mf1,mf2);
+    [xHM3,yHM3,zHM3] = cylinder2P(armrad*[.2 .2],6,mf2,mf3);
+    [xHI1,yHI1,zHI1] = cylinder2P(armrad*[.3 .2],6,handles.joint.hand(c,:),if1);
+    [xHI2,yHI2,zHI2] = cylinder2P(armrad*[.2 .2],6,if1,if2);
+    [xHI3,yHI3,zHI3] = cylinder2P(armrad*[.2 .2],6,if2,if3);
+    [xWT1,yWT1,zWT1] = cylinder2P(armrad*[.3 .2],6,handles.joint.wrist(c,:),tf1);
+    [xWT2,yWT2,zWT2] = cylinder2P(armrad*[.2 .2],6,tf1,tf2);
+    [xWT3,yWT3,zWT3] = cylinder2P(armrad*[.2 .2],6,tf2,tf3);
+    
+    %[xHM,yHM,zHM] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.middlefinger(c,:));
+    %[xHM,yHM,zHM] = cylinder2P(.1,8,handles.joint.hand(c,:),handles.joint.middlefinger(c,:));
+    %[xWF,yWF,zWF] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.indexfinger(c,:));
+    %[xWT,yWT,zWT] = cylinder2P([.25 .25 .25 .1 .1 .1],8,handles.joint.hand(c,:),handles.joint.thumbfinger(c,:));
 end
+
+
+
 
 %rectangle representing the body, assuming a vertical plane
 torsolength = abs(handles.joint.shoulder(1,1)-handles.joint.refshoulder(1,1))*1.5;
@@ -449,7 +694,18 @@ heady = zeros(size(headx));
 headz = headrad*sin(theta)+headrad;
 
 axes(handles.axes1)
+[az,el] = view;
+if (az ~= views.az && views.allowupdate == 1)
+    views.az = az;
+    setappdata(handles.figure1,'views',views);
+end
+if (el ~= views.el && views.allowupdate == 1)
+    views.el = el;
+    setappdata(handles.figure1,'views',views);
+end
 cla(handles.axes1);
+set(gca,'xlim',[handles.plot.xmin handles.plot.xmax],'ylim',[handles.plot.ymin handles.plot.ymax],'zlim',[handles.plot.zmin handles.plot.zmax]);
+view(views.az,views.el);
 h = patch('XData',xtorso,'YData',ytorso,'ZData',ztorso);
 set(h,'FaceColor',[.5 .5 .5]);
 hold on;
@@ -462,17 +718,34 @@ set(h,'FaceColor',[1 1 0]);
 if handles.nmarkers == 8
     h = surf(xWH, yWH, zWH);
     set(h,'FaceColor',[1 1 0]);
-    h = surf(xHM, yHM, zHM);
+    h = surf(xHM1, yHM1, zHM1);
+    set(h,'FaceColor',[0 0 1]);
+    h = surf(xHM2, yHM2, zHM2);
+    set(h,'FaceColor',[0 0 1]);
+    h = surf(xHM3, yHM3, zHM3);
+    set(h,'FaceColor',[0 0 1]);
+    h = surf(xHI1, yHI1, zHI1);
+    set(h,'FaceColor',[0 .5 1]);
+    h = surf(xHI2, yHI2, zHI2);
+    set(h,'FaceColor',[0 .5 1]);
+    h = surf(xHI3, yHI3, zHI3);
+    set(h,'FaceColor',[0 .5 1]);
+    h = surf(xWT1, yWT1, zWT1);
+    set(h,'FaceColor',[1 0 1]);
+    h = surf(xWT2, yWT2, zWT2);
+    set(h,'FaceColor',[1 0 1]);
+    h = surf(xWT3, yWT3, zWT3);
+    set(h,'FaceColor',[1 0 1]);
+else
+    h = surf(xWF, yWF, zWF);
+    set(h,'FaceColor',[0 0 1]);
+    h = surf(xWT, yWT, zWT);
     set(h,'FaceColor',[0 0 1]);
 end
-h = surf(xWF, yWF, zWF);
-set(h,'FaceColor',[0 0 1]);
-h = surf(xWT, yWT, zWT);
-set(h,'FaceColor',[0 0 1]);
 hold off;
 grid on;
-set(gca,'xlim',[handles.plot.xmin handles.plot.xmax],'ylim',[handles.plot.ymin handles.plot.ymax],'zlim',[handles.plot.zmin handles.plot.zmax]);
-view(handles.viewaz,handles.viewel);
+%set(gca,'xlim',[handles.plot.xmin handles.plot.xmax],'ylim',[handles.plot.ymin handles.plot.ymax],'zlim',[handles.plot.zmin handles.plot.zmax]);
+%view(handles.viewaz,handles.viewel);
 xlabel('x');
 ylabel('y');
 zlabel('z');
@@ -492,66 +765,130 @@ end
 hold off;
 ylabel('shoulder')
 
-
-axes(handles.axes3)
-cla(handles.axes3);
-set(handles.axes3,'NextPlot','add');
-h = plot(handles.joint.elbow,'-');
-set(h,'HitTest','off');
-hold on
-h = plot([c c],get(gca,'ylim'),'k:');
-set(h,'HitTest','off');
-for a = 1:length(inds)
-    h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
-    set(h,'HitTest','off')
+if isempty(handles.ctp)
+    
+    axes(handles.axes3)
+    cla(handles.axes3);
+    set(handles.axes3,'NextPlot','add');
+    h = plot(handles.joint.elbow,'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('elbow')
+    
+    axes(handles.axes4)
+    cla(handles.axes4);
+    set(handles.axes4,'NextPlot','add');
+    h = plot(handles.joint.wrist,'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('wrist')
+    
+    axes(handles.axes5)
+    cla(handles.axes5);
+    set(handles.axes5,'NextPlot','add');
+    h = plot(handles.joint.indexfinger,'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('index')
+    
+    axes(handles.axes6)
+    cla(handles.axes6);
+    set(handles.axes6,'NextPlot','add');
+    h = plot(handles.joint.thumbfinger,'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('thumb')
+else %plot ctp data instead of raw data
+    axes(handles.axes3)
+    cla(handles.axes3);
+    set(handles.axes3,'NextPlot','add');
+    h = plot(handles.ctp(:,7),'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('elbow ang')
+    
+    axes(handles.axes4)
+    cla(handles.axes4);
+    set(handles.axes4,'NextPlot','add');
+    h = plot(handles.ctp(:,5:6),'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('arm plane (phi,theta)')
+    
+    axes(handles.axes5)
+    cla(handles.axes5);
+    set(handles.axes5,'NextPlot','add');
+    h = plot(handles.ctp(:,3:4),'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('index curv/tors')
+    
+    axes(handles.axes6)
+    cla(handles.axes6);
+    set(handles.axes6,'NextPlot','add');
+    h = plot(handles.ctp(:,1:2),'-');
+    set(h,'HitTest','off');
+    hold on
+    h = plot([c c],get(gca,'ylim'),'k:');
+    set(h,'HitTest','off');
+    for a = 1:length(inds)
+        h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
+        set(h,'HitTest','off')
+    end
+    hold off;
+    ylabel('thumb curv/tors')
+    
+    
 end
-hold off;
-ylabel('elbow')
-
-axes(handles.axes4)
-cla(handles.axes4);
-set(handles.axes4,'NextPlot','add');
-h = plot(handles.joint.wrist,'-');
-set(h,'HitTest','off');
-hold on
-h = plot([c c],get(gca,'ylim'),'k:');
-set(h,'HitTest','off');
-for a = 1:length(inds)
-    h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
-    set(h,'HitTest','off')
-end
-hold off;
-ylabel('wrist')
-
-axes(handles.axes5)
-cla(handles.axes5);
-set(handles.axes5,'NextPlot','add');
-h = plot(handles.joint.indexfinger,'-');
-set(h,'HitTest','off');
-hold on
-h = plot([c c],get(gca,'ylim'),'k:');
-set(h,'HitTest','off');
-for a = 1:length(inds)
-    h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
-    set(h,'HitTest','off')
-end
-hold off;
-ylabel('index')
-
-axes(handles.axes6)
-cla(handles.axes6);
-set(handles.axes6,'NextPlot','add');
-h = plot(handles.joint.thumbfinger,'-');
-set(h,'HitTest','off');
-hold on
-h = plot([c c],get(gca,'ylim'),'k:');
-set(h,'HitTest','off');
-for a = 1:length(inds)
-    h = plot([inds(a) inds(a)],get(gca,'ylim'),'r-');
-    set(h,'HitTest','off')
-end
-hold off;
-ylabel('thumb')
 
 
 
@@ -608,8 +945,10 @@ function figure1_CloseRequestFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-playtimer = getappdata(handles.figure1,'playtimer');
-stop(playtimer);
+if isfield(handles,'figure1')
+    playtimer = getappdata(handles.figure1,'playtimer');
+    stop(playtimer);
+end
 
 if isequal(get(hObject, 'waitstatus'), 'waiting')
     % The GUI is still in UIWAIT, us UIRESUME
